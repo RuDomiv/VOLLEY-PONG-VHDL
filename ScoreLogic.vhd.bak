@@ -1,0 +1,54 @@
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
+
+ENTITY ScoreLogic IS
+    PORT (
+        SyncClk       : IN  std_logic;  
+        Reset         : IN  std_logic;  
+        -- Evento para incrementar puntajes  
+        Player1Scored : IN  std_logic; 
+        Player2Scored : IN  std_logic;   
+        -- Índice del puntaje de jugadores (binario, 5 bits)
+        Score1Index   : OUT std_logic_vector(4 downto 0);
+        Score2Index   : OUT std_logic_vector(4 downto 0)
+    );
+END ENTITY ScoreLogic;
+
+ARCHITECTURE Behavioral OF ScoreLogic IS
+    SIGNAL Score1, Score2       : std_logic_vector(4 downto 0) := (others => '0');
+    SIGNAL PrevPlayer1Scored    : std_logic := '0';
+    SIGNAL PrevPlayer2Scored    : std_logic := '0';
+BEGIN
+    PROCESS(SyncClk)
+    BEGIN
+        IF rising_edge(SyncClk) THEN
+            IF Reset = '1' THEN
+                -- Reinicia los puntajes
+                Score1 <= (others => '0');
+                Score2 <= (others => '0');
+            ELSE
+                -- Detección de flancos para saber si se anotó o no
+                IF (Player1Scored = '1' AND PrevPlayer1Scored = '0') THEN
+                    IF unsigned(Score1) < 31 THEN
+                        Score1 <= std_logic_vector(unsigned(Score1) + 1);
+                    END IF;
+                END IF;
+
+                IF (Player2Scored = '1' AND PrevPlayer2Scored = '0') THEN
+                    IF unsigned(Score2) < 31 THEN
+                        Score2 <= std_logic_vector(unsigned(Score2) + 1);
+                    END IF;
+                END IF;
+            END IF;
+
+            -- Actualización de estados previos del evento
+            PrevPlayer1Scored <= Player1Scored;
+            PrevPlayer2Scored <= Player2Scored;
+        END IF;
+    END PROCESS;
+
+    -- Asignación de puntajes a las salidas
+    Score1Index <= Score1;
+    Score2Index <= Score2;
+END ARCHITECTURE Behavioral;

@@ -1,0 +1,55 @@
+LIBRARY IEEE;
+USE ieee.std_logic_1164.all;
+USE ieee.numeric_std.all;
+
+ENTITY GralLimCounter IS
+    GENERIC (Nbits : INTEGER := 11); -- Se ajusta el tamaño del contador a 11 bits
+    PORT (
+        Clk       : IN STD_LOGIC;
+        MR        : IN STD_LOGIC;  -- Reset sincrónico
+        SR        : IN STD_LOGIC;  -- Reset asíncrono
+        Ena       : IN STD_LOGIC;  -- Enable del contador
+        Up        : IN STD_LOGIC;  -- Dirección del contador
+        Dwn       : IN STD_LOGIC;
+        Limit     : IN STD_LOGIC_VECTOR(Nbits-1 DOWNTO 0); -- Límite del contador
+        MaxCount  : OUT STD_LOGIC;
+        MinCount  : OUT STD_LOGIC;
+        Count     : OUT STD_LOGIC_VECTOR(Nbits-1 DOWNTO 0) -- Valor del contador
+    );
+END ENTITY;
+
+ARCHITECTURE rtl OF GralLimCounter IS
+    CONSTANT ONES  : UNSIGNED(Nbits-1 DOWNTO 0) := (OTHERS => '1');
+    CONSTANT ZEROS : UNSIGNED(Nbits-1 DOWNTO 0) := (OTHERS => '0');
+
+    SIGNAL count_s      : UNSIGNED(Nbits-1 DOWNTO 0);
+    SIGNAL count_next   : UNSIGNED(Nbits-1 DOWNTO 0);
+BEGIN
+
+    -- Lógica de siguiente estado del contador
+    count_next <= (OTHERS => '0') WHEN SR = '1' ELSE
+                  unsigned(Limit)  WHEN MR = '1' ELSE
+                  count_s + 1      WHEN (Ena = '1' AND Up = '1') ELSE
+                  count_s - 1      WHEN (Ena = '1' AND Up = '0') ELSE
+                  count_s;
+
+    -- Proceso secuencial para actualizar el valor del contador
+    PROCESS(Clk, MR)
+    BEGIN
+        IF (MR = '1') THEN
+            count_s <= ZEROS;
+        ELSIF rising_edge(Clk) THEN
+            IF (Ena = '1') THEN
+                count_s <= count_next;
+            END IF;
+        END IF;
+    END PROCESS;
+
+    -- Asignación de la salida del contador
+    Count <= STD_LOGIC_VECTOR(count_s);
+
+    -- Señales de max_tick y min_tick
+    MaxCount <= '1' WHEN count_s = ONES ELSE '0';
+    MinCount <= '1' WHEN count_s = ZEROS ELSE '0';
+
+END ARCHITECTURE;

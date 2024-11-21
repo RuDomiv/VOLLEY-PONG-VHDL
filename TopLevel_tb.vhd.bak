@@ -1,0 +1,76 @@
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
+USE WORK.BasicPackage.ALL;
+USE WORK.VgaPackage.ALL;
+
+ENTITY TopLevel_tb IS
+END ENTITY TopLevel_tb;
+
+ARCHITECTURE Behavioral OF TopLevel_tb IS
+
+    -- Declaración de señales para conectar al DUT (Device Under Test)
+    SIGNAL Reset     : STD_LOGIC := '0';
+    SIGNAL SyncClk   : STD_LOGIC := '0';
+    SIGNAL ImageData : ColorT := (R => "00000000", G => "00000000", B => "00000000");  -- Datos de imagen inicializados a negro
+    SIGNAL HSync     : uint01;
+    SIGNAL VSync     : uint01;
+    SIGNAL R         : uint08;
+    SIGNAL G         : uint08;
+    SIGNAL B         : uint08;
+
+    -- Parámetros del reloj
+    CONSTANT clk_period : TIME := 10 ns;
+
+BEGIN
+
+    -- Instancia del DUT (TopLevel)
+    DUT: ENTITY WORK.TopLevel
+    PORT MAP (
+        Reset     => Reset,
+        SyncClk   => SyncClk,
+        ImageData => ImageData,
+        HSync     => HSync,
+        VSync     => VSync,
+        R         => R,
+        G         => G,
+        B         => B
+    );
+
+    -- Proceso para generar la señal de reloj
+    ClockProcess: PROCESS
+    BEGIN
+        SyncClk <= '0';
+        WAIT FOR clk_period / 2;
+        SyncClk <= '1';
+        WAIT FOR clk_period / 2;
+    END PROCESS;
+
+    -- Proceso de simulación
+    StimulusProcess: PROCESS
+    BEGIN
+        -- Inicialización
+        WAIT FOR 20 ns;
+        Reset <= '1';  -- Aplicar reset
+        WAIT FOR 20 ns;
+        Reset <= '0';  -- Desactivar reset
+
+        -- Estímulo: Cambiar los valores de ImageData en varios intervalos
+        WAIT FOR 100 ns;
+        ImageData <= (R => "11111111", G => "00000000", B => "00000000");  -- Rojo máximo
+
+        WAIT FOR 100 ns;
+        ImageData <= (R => "00000000", G => "11111111", B => "00000000");  -- Verde máximo
+
+        WAIT FOR 100 ns;
+        ImageData <= (R => "00000000", G => "00000000", B => "11111111");  -- Azul máximo
+
+        WAIT FOR 100 ns;
+        ImageData <= (R => "11111111", G => "11111111", B => "11111111");  -- Blanco (RGB máximos)
+
+        -- Finalizar simulación
+        WAIT FOR 500 ns;
+        WAIT;
+    END PROCESS;
+
+END ARCHITECTURE Behavioral;

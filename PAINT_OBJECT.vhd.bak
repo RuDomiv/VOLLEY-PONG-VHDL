@@ -1,0 +1,40 @@
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
+USE WORK.BasicPackage.ALL;
+USE WORK.VgaPackage.ALL;
+
+ENTITY PAINT_OBJECT IS
+    PORT (
+        Xi      : IN ObjectT;
+        Yi      : IN uint11;      
+        Xf      : IN uint11;      
+        Yf      : IN uint11;   
+        PosX    : IN uint11;
+        PosY    : IN uint11;
+        SEL     : OUT std_logic_vector(2 DOWNTO 0) -- 3 bits para la selección
+    );
+END ENTITY PAINT_OBJECT;
+
+ARCHITECTURE Behavioral OF PAINT_OBJECT IS
+BEGIN
+    PROCESS (PosX, PosY, Xi, Yi, Xf, Yf)
+    BEGIN
+        -- Verificar si la posición (PosX, PosY) está dentro del área definida
+        IF (PosX >= Xi) AND (PosX <= Xf) AND (PosY >= Yi) AND (PosY <= Yf) THEN
+            -- Asignar el valor correspondiente de SEL basado en alguna lógica adicional
+            CASE Xi IS  -- Ejemplo: decidir color basado en algún valor de Xi
+                WHEN 0  => SEL <= "000"; -- BLANCO
+                WHEN 1  => SEL <= "001"; -- ROJO
+                WHEN 2  => SEL <= "010"; -- AZUL
+                WHEN 3  => SEL <= "011"; -- NEGRO
+                WHEN 4  => SEL <= "100"; -- NARANJA
+                WHEN 5  => SEL <= "101"; -- AMARILLO
+                WHEN 6  => SEL <= "110"; -- MORADO
+                WHEN OTHERS => SEL <= "111"; -- VERDE
+            END CASE;
+        ELSE
+            SEL <= "111"; -- Por defecto: VERDE (OTHERS)
+        END IF;
+    END PROCESS;
+END ARCHITECTURE Behavioral;

@@ -1,0 +1,34 @@
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
+USE WORK.VgaPackage.ALL;
+
+ENTITY PixelGenerate IS
+    PORT (
+        ImageData : IN ColorT;      -- Datos de la imagen con componentes R, G y B
+        PosX      : IN uint11;      -- Coordenada X del píxel
+        PosY      : IN uint11;      -- Coordenada Y del píxel
+        VideoOn   : IN STD_LOGIC;   -- Señal que indica si el video está activo
+        R         : OUT uint08;     -- Componente rojo de salida
+        G         : OUT uint08;     -- Componente verde de salida
+        B         : OUT uint08      -- Componente azul de salida
+    );
+END ENTITY PixelGenerate;
+
+ARCHITECTURE Behavioral OF PixelGenerate IS
+BEGIN
+    PROCESS (ImageData, PosX, PosY, VideoOn)
+    BEGIN
+        IF VideoOn = '1' THEN
+            -- Asignamos los colores correspondientes de la entrada ImageData
+            R <= ImageData.R;
+            G <= ImageData.G;
+            B <= ImageData.B;
+        ELSE
+            -- Si VideoOn está en '0', apagamos los colores
+            R <= (OTHERS => '0');
+            G <= (OTHERS => '0');
+            B <= (OTHERS => '0');
+        END IF;
+    END PROCESS;
+END ARCHITECTURE Behavioral;

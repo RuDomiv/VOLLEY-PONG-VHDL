@@ -1,0 +1,53 @@
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
+USE WORK.BasicPackage.ALL;
+USE WORK.VgaPackage.ALL;
+
+ENTITY TopLevel IS
+    PORT (
+        Reset     : IN  STD_LOGIC;
+        SyncClk   : IN  STD_LOGIC;
+        ImageData : IN  ColorT;    -- Datos de la imagen con componentes R, G y B
+        HSync     : OUT uint01;
+        VSync     : OUT uint01;
+        R         : OUT uint08;    -- Componente rojo de salida
+        G         : OUT uint08;    -- Componente verde de salida
+        B         : OUT uint08     -- Componente azul de salida
+    );
+END ENTITY TopLevel;
+
+ARCHITECTURE Behavioral OF TopLevel IS
+
+    -- Señales internas para conectar los módulos
+    SIGNAL VideoOn   : uint01;
+    SIGNAL PixelX    : uint11;  -- Coordenada X del píxel
+    SIGNAL PixelY    : uint11;  -- Coordenada Y del píxel
+
+BEGIN
+
+    -- Instancia del módulo ImageSync
+    ImageSync_inst : ENTITY WORK.ImageSync
+    PORT MAP (
+        Reset   => Reset,
+        SyncClk => SyncClk,
+        HSync   => HSync,
+        VSync   => VSync,
+        VideoOn => VideoOn,
+        PixelX  => PixelX,    -- Salida PixelX
+        PixelY  => PixelY     -- Salida PixelY
+    );
+
+    -- Instancia del módulo PixelGenerate
+    PixelGenerate_inst : ENTITY WORK.PixelGenerate
+    PORT MAP (
+        ImageData => ImageData, -- Imagen de entrada con datos de color
+        PosX      => PixelX,    -- Entrada de coordenada X del píxel desde ImageSync
+        PosY      => PixelY,    -- Entrada de coordenada Y del píxel desde ImageSync
+        VideoOn   => VideoOn,   -- Entrada VideoOn desde ImageSync
+        R         => R,         -- Salida componente rojo
+        G         => G,         -- Salida componente verde
+        B         => B          -- Salida componente azul
+    );
+
+END ARCHITECTURE Behavioral;

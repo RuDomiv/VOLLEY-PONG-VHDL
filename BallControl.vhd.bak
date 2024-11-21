@@ -1,0 +1,194 @@
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
+USE WORK.BasicPackage.ALL;
+USE WORK.VgaPackage.ALL;
+
+ENTITY BallControl IS
+    PORT (
+        Clk            : IN STD_LOGIC;
+        Reset          : IN STD_LOGIC;
+        Paddle1_Pos    : IN PositionT;
+        Paddle2_Pos    : IN PositionT;
+        Separator1_Pos : IN PositionT;
+        Separator2_Pos : IN PositionT;
+        Ball_Pos       : OUT PositionT --esta es en realidad la posición de la pepa
+    );
+END ENTITY BallControl; -- tener cuidado con los integer en la entidad
+
+ARCHITECTURE Behavioral OF BallControl IS
+    -- Declaración de señales
+    
+    SIGNAL Ball_VelX : INTEGER;
+    SIGNAL Ball_VelY : INTEGER;
+
+    -- Señales para el contador
+    SIGNAL BallCounter_MaxCount : STD_LOGIC;
+    SIGNAL BallCounter_Count    : STD_LOGIC_VECTOR(23 - 1 DOWNTO 0);
+
+    -- Constantes ajustadas
+    CONSTANT Gravity : INTEGER := 2;
+    CONSTANT Restitution_Scaled : INTEGER := 1000; -- Coeficiente de restitución de 1
+    CONSTANT MinBounceSpeed : INTEGER := 3; -- Velocidad mínima después del rebote
+
+    -- Constantes para los cálculos de impacto
+    CONSTANT Paddle_Width        : INTEGER := 100; -- Ancho de los paddles
+    CONSTANT Ball_Width          : INTEGER := 39;  -- Ancho de la pelota
+    CONSTANT MaxHorizontalSpeed  : INTEGER := 5;   -- Velocidad horizontal máxima de la pelota
+    CONSTANT ScaleFactor         : INTEGER := 1000; -- Factor de escala para números fraccionarios
+
+    -- Constantes de pantalla ya incluídas en el BasicPackage
+BEGIN
+    -- Instancia del GralLimCounter para controlar la velocidad de la pelota
+    BallCounter_inst : ENTITY WORK.GralLimCounter
+    GENERIC MAP (Nbits => 23)
+    PORT MAP (
+        Clk       => Clk,
+        MR        => Reset,
+        SR        => '0',
+        Ena       => '1',
+        Up        => '1',
+        Dwn       => '0',
+        Limit     => Int2Slv(1000000, 23),
+        MaxCount  => BallCounter_MaxCount,
+        MinCount  => OPEN,
+        Count     => BallCounter_Count
+    );
+
+    PROCESS(Clk, Reset)
+        -- Variables para los cálculos
+        VARIABLE Ball_Xi_int : INTEGER;
+        VARIABLE Ball_Yi_int : INTEGER;
+        VARIABLE Ball_Xf_int : INTEGER;
+        VARIABLE Ball_Yf_int : INTEGER;
+        VARIABLE Paddle1_Center        : INTEGER;
+        VARIABLE Paddle2_Center        : INTEGER;
+        VARIABLE ImpactPoint           : INTEGER;
+        VARIABLE RelativeImpact_Scaled : INTEGER;
+    BEGIN
+        IF Reset = '1' THEN
+            -- Inicialización de la posición y velocidad de la pelota
+            Ball_Xi_int := ScreenWidth / 2;
+            Ball_Yi_int := ScreenHeight / 2;
+            Ball_VelX <= 0; -- Velocidad horizontal inicial
+            Ball_VelY <= -15; -- Velocidad vertical inicial más alta
+
+        ELSIF rising_edge(Clk) THEN
+            -- Solo actualizamos la posición cuando el contador alcanza el límite
+            IF BallCounter_MaxCount = '1' THEN
+                -- Actualizar velocidad vertical con gravedad
+                Ball_VelY <= Ball_VelY + Gravity;
+
+                -- Actualización de la posición de la pelota
+                Ball_Xi_int := Ball_Xi_int + Ball_VelX;
+                Ball_Yi_int := Ball_Yi_int + Ball_VelY;
+                Ball_Xf_int := Ball_Xi_int + Ball_Width;
+                Ball_Yf_int := Ball_Yi_int + Ball_Width;
+
+                -- Colisión con los bordes izquierdo y derecho
+                IF Ball_Xi_int <= 0 THEN
+                    Ball_Xi_int := 0;
+                    Ball_VelX <= -Ball_VelX;
+                ELSIF Ball_Xf_int >= ScreenWidth THEN
+                    Ball_Xi_int := ScreenWidth - Ball_Width;
+                    Ball_VelX <= -Ball_VelX;
+                END IF;
+
+                -- Colisión con el suelo (Separator2)
+                IF Ball_Yf_int >= Slv2Int(Separator2_Pos.Yi) THEN
+                    Ball_Yi_int := Slv2Int(Separator2_Pos.Yi) - Ball_Width;
+
+                    -- Invertir velocidad vertical con pérdida de energía
+                    Ball_VelY <= -((Ball_VelY * Restitution_Scaled) / ScaleFactor);
+
+                    -- Asegurar que la velocidad vertical sea al menos la mínima
+                    IF ABS(Ball_VelY) < MinBounceSpeed THEN
+                        Ball_VelY <= -MinBounceSpeed;
+                    END IF;
+                END IF;
+
+                -- Colisión con el techo (Separator1)
+                IF Ball_Yi_int <= Slv2Int(Separator1_Pos.Yf) THEN
+                    Ball_Yi_int := Slv2Int(Separator1_Pos.Yf);
+                    Ball_VelY <= -((Ball_VelY * Restitution_Scaled) / ScaleFactor);
+
+                    -- Asegurar que la velocidad vertical sea al menos la mínima
+                    IF ABS(Ball_VelY) < MinBounceSpeed THEN
+                        Ball_VelY <= MinBounceSpeed;
+                    END IF;
+                END IF;
+
+                -- Colisión con Paddle1
+                IF (Ball_Yf_int >= Slv2Int(Paddle1_Pos.Yi) AND Ball_Yi_int <= Slv2Int(Paddle1_Pos.Yf)) AND
+                   (Ball_Xf_int >= Slv2Int(Paddle1_Pos.Xi) AND Ball_Xi_int <= Slv2Int(Paddle1_Pos.Xf)) THEN
+
+                    -- Ajuste de la posición de la pelota para evitar superposición
+                    Ball_Yi_int := Slv2Int(Paddle1_Pos.Yi) - Ball_Width;
+
+                    -- Invertir velocidad vertical con pérdida de energía
+                    Ball_VelY <= -((Ball_VelY * Restitution_Scaled) / ScaleFactor);
+
+                    -- Asegurar que la velocidad vertical sea al menos la mínima
+                    IF ABS(Ball_VelY) < MinBounceSpeed THEN
+                        Ball_VelY <= -MinBounceSpeed;
+                    END IF;
+
+                    -- Cálculo del punto de impacto relativo
+                    Paddle1_Center := Slv2Int(Paddle1_Pos.Xi) + (Paddle_Width / 2);
+                    ImpactPoint := (Ball_Xi_int + (Ball_Width / 2)) - Paddle1_Center;
+                    RelativeImpact_Scaled := (ImpactPoint * ScaleFactor) / (Paddle_Width / 2);
+
+                    -- Asegurar que RelativeImpact_Scaled esté entre -ScaleFactor y +ScaleFactor
+                    IF RelativeImpact_Scaled > ScaleFactor THEN
+                        RelativeImpact_Scaled := ScaleFactor;
+                    ELSIF RelativeImpact_Scaled < -ScaleFactor THEN
+                        RelativeImpact_Scaled := -ScaleFactor;
+                    END IF;
+
+                    -- Ajustar la velocidad horizontal
+                    Ball_VelX <= (RelativeImpact_Scaled * MaxHorizontalSpeed) / ScaleFactor;
+
+                END IF;
+
+                -- Colisión con Paddle2
+                IF (Ball_Yf_int >= Slv2Int(Paddle2_Pos.Yi) AND Ball_Yi_int <= Slv2Int(Paddle2_Pos.Yf)) AND
+                   (Ball_Xf_int >= Slv2Int(Paddle2_Pos.Xi) AND Ball_Xi_int <= Slv2Int(Paddle2_Pos.Xf)) THEN
+
+                    -- Ajuste de la posición de la pelota para evitar superposición
+                    Ball_Yi_int := Slv2Int(Paddle2_Pos.Yi) - Ball_Width;
+
+                    -- Invertir velocidad vertical con pérdida de energía
+                    Ball_VelY <= -((Ball_VelY * Restitution_Scaled) / ScaleFactor);
+
+                    -- Asegurar que la velocidad vertical sea al menos la mínima
+                    IF ABS(Ball_VelY) < MinBounceSpeed THEN
+                        Ball_VelY <= -MinBounceSpeed;
+                    END IF;
+
+                    -- Cálculo del punto de impacto relativo
+                    Paddle2_Center := Slv2Int(Paddle2_Pos.Xi) + (Paddle_Width / 2);
+                    ImpactPoint := (Ball_Xi_int + (Ball_Width / 2)) - Paddle2_Center;
+                    RelativeImpact_Scaled := (ImpactPoint * ScaleFactor) / (Paddle_Width / 2);
+
+                    -- Asegurar que RelativeImpact_Scaled esté entre -ScaleFactor y +ScaleFactor
+                    IF RelativeImpact_Scaled > ScaleFactor THEN
+                        RelativeImpact_Scaled := ScaleFactor;
+                    ELSIF RelativeImpact_Scaled < -ScaleFactor THEN
+                        RelativeImpact_Scaled := -ScaleFactor;
+                    END IF;
+
+                    -- Ajustar la velocidad horizontal
+                    Ball_VelX <= (RelativeImpact_Scaled * MaxHorizontalSpeed) / ScaleFactor;
+
+                END IF;
+
+                -- Actualizar la señal de posición de la pelota
+                Ball_Pos.Xi <= Int2Slv(Ball_Xi_int, 11);
+                Ball_Pos.Yi <= Int2Slv(Ball_Yi_int, 11);
+                Ball_Pos.Xf <= Int2Slv(Ball_Xf_int, 11);
+                Ball_Pos.Yf <= Int2Slv(Ball_Yf_int, 11);
+
+            END IF;
+        END IF;
+    END PROCESS;
+END ARCHITECTURE Behavioral;

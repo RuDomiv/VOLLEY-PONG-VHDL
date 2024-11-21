@@ -1,0 +1,65 @@
+-- ColorControl.vhd
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
+
+-- ENTIDAD PRINCIPAL QUE CONECTA PAINT_OBJECT Y LOS MULTIPLEXORES
+ENTITY ColorControl IS
+    PORT (
+        Xi, Xf, Yi, Yf 	: IN  uint11;
+        PosX, PosY     	: IN  uint11;
+        VideoON        	: IN  std_logic;
+        RGB       		: OUT ColorT -- Salidas RGB finaleS
+    );
+END ENTITY ColorControl;
+
+ARCHITECTURE Behavioral OF ColorControl IS
+    -- Señal interna para la selección del color desde PAINT_OBJECT
+    SIGNAL SEL : std_logic_vector(2 DOWNTO 0); 
+    SIGNAL ColorMux : std_logic; -- Selección entre rojo y verde
+BEGIN
+    -- Instancia del bloque PAINT_OBJECT
+    U1: ENTITY WORK.PAINT_OBJECT
+    PORT MAP (
+        Xi => Xi,
+        Yi => Yi,
+        Xf => Xf,
+        Yf => Yf,
+        PosX => PosX,
+        PosY => PosY,
+        SEL => SEL
+    );
+
+	 with SEL select
+	-- COMPONENTE ROJA
+	RGB.R	<= X"FF"  		WHEN "000",		-- BLANCO 
+				X"FF"  		WHEN "001",-- ROJO   
+				X"00"  		WHEN "010",-- AZUL   
+				X"00"  		WHEN "011",-- NEGRO
+				X"CD"  		WHEN "100",-- PERU
+				X"FF"  		WHEN "101",-- AMARILLO
+				X"93"  		WHEN "110",-- MORADO
+				X"00"  		WHEN OTHERS;-- VERDE
+	-- COMPONENTE VERDE
+	RGB.G	<= X"FF"  		WHEN "000",		-- BLANCO 
+				X"00"  		WHEN "001",-- ROJO   
+				X"00"  		WHEN "010",-- AZUL   
+				X"00"  		WHEN "011",-- NEGRO
+				X"85"  		WHEN "100",-- PERU
+				X"FF"  		WHEN "101",-- AMARILLO
+				X"70"  		WHEN "110",-- MORADO
+				X"FF"  		WHEN OTHERS;-- VERDE
+	-- COMPONENTE AZUL	
+	RGB.B	<= X"FF"  		WHEN "000",		-- BLANCO 
+				X"00"  		WHEN "001",		-- ROJO   
+				X"FF"  		WHEN "010",-- AZUL   
+				X"00"  		WHEN "011",-- NEGRO
+				X"3F"		  	WHEN "100",-- PERU
+				X"00"  		WHEN "101",-- AMARILLO
+				X"DB"  		WHEN "110",-- MORADO
+				X"00"  		WHEN OTHERS;-- VERDE
+					
+	
+END ARCHITECTURE functional;
+   
+END ARCHITECTURE Behavioral;
